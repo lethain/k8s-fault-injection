@@ -3,6 +3,7 @@ Proof of concept around simple fault injection for Kubernetes.
 """
 import argparse
 import pprint
+import random
 import requests
 
 
@@ -35,9 +36,9 @@ class KClient(object):
         "Perform GET."
         return self.request('get', path, *args, **kwargs)
 
-    def patch(self, path, *args, **kwargs):
-        "Perform PATCH."
-        return self.request('patch', path, *args, **kwargs)
+    def delete(self, path, *args, **kwargs):
+        "Perform DELETE."
+        return self.request('delete', path, *args, **kwargs)
 
 
 def deployments(kc, include_by_default=False, ignore_namespaces=None):
@@ -67,30 +68,56 @@ def deployments(kc, include_by_default=False, ignore_namespaces=None):
         if namespace in ignore_namespaces:
             continue
         if opt_out:
-            continue        
+            continue
         if (not include_by_default) and not opt_in:
             continue
         enabled.append(dep)
     return enabled
 
-"""
-    metadata:
-      labels:
-        app: gke-ci
-      annotations:
-        fault_injection.opt_in: "true"
-"""
+
+def pods(kc, deployment):
+    "Retrieve pods for a deployment."
+    metadata = deployment.get('metadata', {})
+    labels = metadata.get('labels', {})
+    if 'app' in labels:
+        pods = kc.get('/api/v1/pods?labelSelector=app%%3D%s' % (labels['app'],))
+        return pods.json()['items']
+    return []
 
 
-def inject_faults(loc, include_by_default, ignore_namespaces):
+def inject_faults(loc, include_by_default, ignore_namespaces, dry_run):
     kc = KClient(loc)
+
+    deleted_pods = 0
+    total_pods = 0
     for dep in deployments(kc, include_by_default, ignore_namespaces):
         meta = dep.get('metadata', {})
         annotations = meta.get('annotations', {})
-        del annotations['kubectl.kubernetes.io/last-applied-configuration']
-        pprint.pprint(meta)
-        print ''
+        max_to_delete = int(annotations.get('fault_injection.max_to_delete', '1'))
 
+        # deleting because it's too noisy to print, no change to behavior
+        del annotations['kubectl.kubernetes.io/last-applied-configuration']
+
+        print "deployment: %s" % (meta['name'],)
+        ps = pods(kc, dep)
+        num_to_delete = 1
+        to_delete = random.sample(ps, num_to_delete)
+
+        deleted_pods += len(to_delete)
+        total_pods += len(ps)
+
+        names = ", ".join([p['metadata']['name'] for p in to_delete])
+        print "selected %s of %s pods: %s" % (len(to_delete), len(ps), names)
+
+        if dry_run:
+            print 'dry_run enabled, so not taking any actions'
+        else:
+            for p in to_delete:
+                link = p['metadata']['selfLink']
+                print "\tDELETE %s" % (link,)
+                kc.delete(link)
+
+    print "\ndeleted %s out of %s considered pods" % (deleted_pods, total_pods)
 
 
 def main():
@@ -99,10 +126,10 @@ def main():
     p.add_argument('--loc', default='https://kubernetes', help='location to access Kubernetes API')
     p.add_argument('--include-by-default', default=False, action='store_true', help='opt all deploys in by default')
     p.add_argument('--ignore', default='kube-system', help='csv of namespaces to ignore')
-
+    p.add_argument('--dry-run', default=False, action='store_true', help='don\'t perform any actions')
 
     args = p.parse_args()
-    inject_faults(args.loc, args.include_by_default, args.ignore.split(','))
+    inject_faults(args.loc, args.include_by_default, args.ignore.split(','), args.dry_run)
 
 
 if __name__ == '__main__':
