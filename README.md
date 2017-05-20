@@ -71,6 +71,9 @@ deleted 1 out of 1 considered pods
 You can also use the `Dockerfile` included in this repository
 to run it as a Kubernetes Cron Job, where it'll use the container's
 serviceaccount tokens to authenticate to `http://kubernetes`.
+There is an example `cronjob.yaml` in the repository as well,
+although I'm running on GKE and don't want to create an alpha
+cluster that gets autodeleted, so not positive it quite works.
 
 
 ## Missing features.

@@ -1,0 +1,14 @@
+apiVersion: batch/v2alpha1
+kind: CronJob
+metadata:
+    name: k8s-fault-injection
+spec:
+  schedule: "40 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: k8s-fault-injection
+              image: gcr.io/larson-deployment/k8s-fault-injection:63d2fd26d2383c5c1626f15f0b1266810834d1f1
+          restartPolicy: OnFailure
