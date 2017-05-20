@@ -22,11 +22,11 @@ which are ignored (default value is `kube-system`).
 
 Note that `opt_in` and `opt_out` are basically local overrides for global behavior:
 
-   # include no matter what
-   fault_injection.opt_in: "true"
-   
-   # exclude no matter what
-   fault_injection.opt_out: "true"
+    # include no matter what
+    fault_injection.opt_in: "true"
+
+    # exclude no matter what
+    fault_injection.opt_out: "true"
 
 Consequently, `opt_in: "false"` is *not* equivalent to `opt_out: "true"`.
 
