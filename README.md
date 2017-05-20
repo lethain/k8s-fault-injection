@@ -1,4 +1,6 @@
 
+## k8s-fault-injection
+
 There are a handful of ways to configure which deployments are eligible for fault injection.
 The recommended starting place is to add the `fault_injection.opt_in: "true"` annotation for
 deployments you want to opt-in.
